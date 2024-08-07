@@ -10,7 +10,18 @@ repositories {
 }
 
 dependencies {
+    implementation("com.github.ajalt.clikt:clikt:4.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+    implementation("com.github.ajalt.mordant:mordant:2.7.2")
+    implementation("com.github.ajalt.mordant:mordant-coroutines:2.7.2")
+    implementation("org.postgresql:postgresql:42.7.3")
+    implementation("com.github.seratch:kotliquery:1.9.0")
+
+    val kotestVersion = "5.9.1"
     testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")
+    testImplementation("io.kotest:kotest-assertions-core:$kotestVersion")
+    testImplementation("io.kotest:kotest-property:$kotestVersion")
 }
 
 tasks.test {
