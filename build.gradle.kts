@@ -16,6 +16,7 @@ dependencies {
     implementation("com.github.ajalt.mordant:mordant-coroutines:2.7.2")
     implementation("org.postgresql:postgresql:42.7.3")
     implementation("com.github.seratch:kotliquery:1.9.0")
+    implementation("org.slf4j:slf4j-nop:1.7.36")
 
     val kotestVersion = "5.9.1"
     testImplementation("org.jetbrains.kotlin:kotlin-test")
@@ -29,6 +30,9 @@ tasks.test {
 }
 kotlin {
     jvmToolchain(17)
+    compilerOptions {
+        freeCompilerArgs.add("-Xcontext-receivers")
+    }
 }
 
 tasks.register<Jar>("uberJar") {
