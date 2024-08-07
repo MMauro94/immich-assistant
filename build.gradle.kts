@@ -19,3 +19,20 @@ tasks.test {
 kotlin {
     jvmToolchain(17)
 }
+
+tasks.register<Jar>("uberJar") {
+    archiveClassifier.set("uber")
+
+    from(sourceSets.main.get().output)
+
+    dependsOn(configurations.runtimeClasspath)
+    from({
+        configurations.runtimeClasspath.get().filter { it.name.endsWith("jar") }.map { zipTree(it) }
+    }) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    manifest {
+        attributes["Main-Class"] = "dev.mmauro.immichassistant.MainCommandKt"
+    }
+}
