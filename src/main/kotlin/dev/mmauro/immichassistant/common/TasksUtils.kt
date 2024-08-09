@@ -27,12 +27,12 @@ data class TaskContext(
     val message: String? = null,
 )
 
-context(CoroutineScope)
+context(CommonCommand)
 suspend fun <T> CoroutineProgressAnimator.addDeferredTask(
     name: String,
     stopOnException: Boolean = true,
     taskRunner: suspend TaskRunnerScope.() -> T,
-): Deferred<T> {
+): Deferred<T> = coroutineScope {
     class TaskRunnerScopeImpl(override val task: ProgressTask<TaskContext>) : TaskRunnerScope {
         override fun started() {
             task.update {
@@ -49,7 +49,7 @@ suspend fun <T> CoroutineProgressAnimator.addDeferredTask(
 
     val task = addTask(definition = taskLayout(name), context = TaskContext(), total = 1, completed = 0)
     val taskScope = TaskRunnerScopeImpl(task)
-    return async {
+    async {
         withContext(Dispatchers.IO) {
             val result = runCatching { taskRunner(taskScope) }
             task.update {
@@ -66,8 +66,21 @@ suspend fun <T> CoroutineProgressAnimator.addDeferredTask(
                     // Leave mordant time to render the last frame
                     delay(100)
                     stop()
+
                     throw PrintMessage(
-                        message = red("Error: ") + "Task \"$name\" failed" + exception.message?.ifBlank { null }?.let { ": $it" },
+                        message = buildString {
+                            append(red("Error: "))
+                            append("Task \"$name\" failed")
+                            val details = exception.message?.ifBlank { null } ?: exception::class.simpleName
+                            if (details != null) {
+                                append(": ")
+                                append(details)
+                            }
+                            if (commonOptions.debug) {
+                                appendLine()
+                                append(exception.stackTraceToString())
+                            }
+                        },
                         statusCode = 1
                     )
                 }

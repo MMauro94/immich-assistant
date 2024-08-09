@@ -6,17 +6,18 @@ import java.nio.file.Path
 import kotlin.io.path.Path
 
 class Asset(
-    val id: String,
+    override val id: String,
     val ownerId: String,
     val type: Type,
     val originalPath: Path,
     val previewPath: Path?,
     val thumbnailPath: Path?,
     val encodedVideoPath: Path?,
+    val checksum: ByteArray,
     val isVisible: Boolean,
     val livePhotoVideoId: String?,
-    val checksum: ByteArray,
-) {
+    val sidecarPath: Path?,
+) : DbEntity {
     enum class Type {
         IMAGE, VIDEO
     }
@@ -35,9 +36,10 @@ class Asset(
             previewPath = row.stringOrNull("previewPath")?.let { Path(it) },
             thumbnailPath = row.stringOrNull("thumbnailPath")?.let { Path(it) },
             encodedVideoPath = row.stringOrNull("encodedVideoPath")?.let { Path(it) },
+            checksum = row.bytes("checksum"),
             isVisible = row.boolean("isVisible"),
             livePhotoVideoId = row.stringOrNull("livePhotoVideoId"),
-            checksum = row.bytes("checksum"),
+            sidecarPath = row.stringOrNull("sidecarPath")?.let { Path(it) },
         )
     }
 }

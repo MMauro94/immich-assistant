@@ -3,57 +3,90 @@ package dev.mmauro.immichassistant.verify
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
-import dev.mmauro.immichassistant.common.Constants
+import com.github.ajalt.clikt.parameters.types.int
 import dev.mmauro.immichassistant.common.FileType
+import dev.mmauro.immichassistant.common.toAbsolute
 import dev.mmauro.immichassistant.db.model.Asset
+import dev.mmauro.immichassistant.db.model.DbEntity
+import dev.mmauro.immichassistant.db.model.Person
 import java.nio.file.Path
-import kotlin.io.path.div
 
 class VerifyFilesFilters : OptionGroup(
     name = "Verify files filters",
     help = "Allows to filter which files to verify".trimIndent(),
 ) {
 
-    val verifyOriginals by option(help = "Verifies the original file")
+    private val verifyOriginals by option(help = "Verifies the original files")
         .flag("--skip-originals", default = true)
 
-    val verifyThumbs by option(help = "Verifies the thumbnails")
+    private val verifyThumbs by option(help = "Verifies the thumbnails")
         .flag("--skip-thumbnails", default = true)
 
-    val verifyEncodedVideos by option(help = "Verifies the encoded videos")
+    private val verifyEncodedVideos by option(help = "Verifies the encoded videos")
         .flag("--skip-encoded-videos", default = true)
 
-    val verifyImages by option(help = "Verifies image assets")
+    private val verifyImages by option(help = "Verifies image assets")
         .flag("--skip-images", default = true)
 
-    val verifyVideos by option(help = "Verifies video assets")
+    private val verifyVideos by option(help = "Verifies video assets")
         .flag("--skip-videos", default = true)
 
+    private val verifyPeople by option(help = "Verifies people's profiles")
+        .flag("--skip-people", default = true)
+
+    private val limitFiles by option(
+        help = "Only the first N specified files will be verified. Useful to understand if the CLI is setup correctly before running for the whole data set."
+    ).int()
 
     private fun Asset.shouldInclude(): Boolean {
         return (verifyImages && type == Asset.Type.IMAGE) || (verifyVideos && type == Asset.Type.VIDEO)
     }
 
-    fun getFilteredFiles(assets: Iterable<Asset>, uploadLocation: Path, limit: Int): Map<Asset, List<FilteredFile>> {
-        fun Path.toAbsolute() = uploadLocation / Constants.ROOT_PATH.relativize(this)
+    fun getFilteredTrackedFiles(
+        assets: Iterable<Asset>,
+        people: Iterable<Person>,
+        uploadLocation: Path,
+    ): List<TrackedFile> {
+        fun Path.toTrackedFile(entity: DbEntity, fileType: FileType, checksum: ByteArray?) = TrackedFile(
+            entity = entity,
+            path = toAbsolute(uploadLocation),
+            type = fileType,
+            checksum = checksum
+        )
 
-        return assets.filter { it.shouldInclude() }.take(limit).associateWith {
-            buildList {
-                if (verifyOriginals) {
-                    add(FilteredFile(it.originalPath.toAbsolute(), FileType.ORIGINAL, it.checksum))
+        val allFiles = sequence {
+            yieldAll(
+                assets.asSequence().filter { it.shouldInclude() }.flatMap {
+                    buildList {
+                        if (verifyOriginals) {
+                            add(it.originalPath.toTrackedFile(it, FileType.ORIGINAL, it.checksum))
+                        }
+                        if (verifyThumbs && it.thumbnailPath != null) {
+                            add(it.thumbnailPath.toTrackedFile(it, FileType.THUMBNAIL, checksum = null))
+                        }
+                        if (verifyEncodedVideos && it.encodedVideoPath != null) {
+                            add(it.encodedVideoPath.toTrackedFile(it, FileType.ENCODED_VIDEO, checksum = null))
+                        }
+                    }
                 }
-                if (verifyThumbs && it.thumbnailPath != null) {
-                    add(FilteredFile(it.thumbnailPath.toAbsolute(), FileType.THUMBNAIL, checksum = null))
-                }
-                if (verifyEncodedVideos && it.encodedVideoPath != null) {
-                    add(FilteredFile(it.encodedVideoPath.toAbsolute(), FileType.ENCODED_VIDEO, checksum = null))
-                }
+            )
+            if(verifyPeople) {
+                yieldAll(
+                    people
+                        .asSequence()
+                        .mapNotNull { it.thumbnailPath?.toTrackedFile(it, FileType.PROFILE, checksum = null) }
+                )
             }
         }
+        return allFiles.take(limitFiles ?: Int.MAX_VALUE).toList()
     }
 }
 
-class FilteredFile(
+/**
+ * A file tracked by Immich's DB
+ */
+class TrackedFile(
+    val entity: DbEntity,
     val path: Path,
     val type: FileType,
     val checksum: ByteArray?,

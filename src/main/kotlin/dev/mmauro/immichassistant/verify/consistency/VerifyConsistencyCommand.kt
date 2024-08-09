@@ -7,6 +7,7 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.mordant.animation.coroutines.animateInCoroutine
 import com.github.ajalt.mordant.animation.progress.MultiProgressBarAnimation
+import com.github.ajalt.mordant.animation.progress.addTask
 import com.github.ajalt.mordant.animation.progress.advance
 import com.github.ajalt.mordant.rendering.TextColors.green
 import com.github.ajalt.mordant.rendering.Widget
@@ -16,11 +17,12 @@ import com.github.ajalt.mordant.widgets.progress.*
 import dev.mmauro.immichassistant.common.*
 import dev.mmauro.immichassistant.db.connectDb
 import dev.mmauro.immichassistant.db.model.Asset
+import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
-import dev.mmauro.immichassistant.verify.FilteredFile
+import dev.mmauro.immichassistant.verify.TrackedFile
 import dev.mmauro.immichassistant.verify.VerifyFilesFilters
 import kotlinx.coroutines.*
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.Executors
 import kotlin.io.path.exists
 
 class VerifyConsistencyCommand : CliktCommand(
@@ -36,16 +38,14 @@ class VerifyConsistencyCommand : CliktCommand(
         This command does not verify that each file in the file system is reflected in Immich's DB.
         For that, use the `verify orphaned` command.
     """.trimIndent()
-) {
+), CommonCommand {
 
+    override val commonOptions by CommonOptions()
     private val immichConfig by ImmichConfig()
     private val verifyFilesFilters by VerifyFilesFilters()
     private val verifyChecksums by option(
         help = "Compares the SHA-1 checksum of the verified files. Currently only original files are checked, as that's the only file Immich checksums."
-    ).flag(default = true)
-    private val limitAssets by option(
-        help = "Only the first N specified assets will be verified. Useful to understand if the CLI is setup correctly before running for the whole data set."
-    ).int()
+    ).flag("--skip-checksums", default = true)
 
     override fun run(): Unit = runBlocking {
         val multiProgressBarAnimation = MultiProgressBarAnimation(terminal)
@@ -56,63 +56,65 @@ class VerifyConsistencyCommand : CliktCommand(
             started()
             immichConfig.connectDb()
         }
-        val assets = progress.addDeferredTask("Listing assets") {
+        val assetsTask = progress.addDeferredTask("Listing assets") {
             val db = dbTask.await()
             started()
             db.selectAll(Asset)
-        }.await()
+        }
+        val peopleTask = progress.addDeferredTask("Listing people") {
+            val db = dbTask.await()
+            started()
+            db.selectAll(Person)
+        }
+        val assets = assetsTask.await()
+        val people = peopleTask.await()
 
         // Get a map where the asset is the key and each value is the list of files to validate
         // Assets that don't pass the filter are discarded
-        val filesToValidate = verifyFilesFilters.getFilteredFiles(
+        val filesToValidate = verifyFilesFilters.getFilteredTrackedFiles(
             assets = assets,
+            people = people,
             uploadLocation = immichConfig.uploadLocation,
-            limit = limitAssets ?: Int.MAX_VALUE
         )
-        val totalFiles = filesToValidate.values.sumOf { it.size }.toLong()
 
-        val verifyTaskLayout = progressBarContextLayout<VerifyContext>(alignColumns = false) {
-            progressBar(width = 20, finishedStyle = green)
+        if (filesToValidate.isEmpty()) {
+            execution.join()
+            echo()
+            echo("Nothing to validate 🫤")
+            return@runBlocking
+        }
+
+        val verifyTaskLayout = progressBarLayout(alignColumns = false) {
             percentage()
-            itemsCount(
-                completed = { context.assets.toLong() },
-                total = filesToValidate.keys.size.toLong(),
-                suffix = " assets"
-            )
-            itemsCount(completed = { completed }, total = totalFiles, suffix = " files")
+            progressBar(width = 20, finishedStyle = green)
+            completed(" files")
             speed(suffix = " files/s")
         }
         val verifyTask = progress.addTask(
             definition = verifyTaskLayout,
             completed = 0L,
-            total = totalFiles,
-            context = VerifyContext(assets = 0)
+            total = filesToValidate.size.toLong(),
         )
 
-        val deferredResults: Map<Asset, Deferred<List<VerifiedFile>>> = withContext(Dispatchers.IO) {
-            filesToValidate.mapValues { (_, files) ->
-                async {
-                    files.map {
+        // advance() can only be called sequentially, so we'll do it on a fixed thread pool of size 1
+        val results = Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { advanceDispatcher ->
+            val deferredResults = withContext(Dispatchers.IO) {
+                filesToValidate.map {
+                    async {
                         VerifiedFile(it, it.verify()).also {
-                            verifyTask.advance()
-                        }
-                    }.also {
-                        verifyTask.update {
-                            context = context.copy(assets = context.assets + 1)
+                            withContext(advanceDispatcher) {
+                                verifyTask.advance()
+                            }
                         }
                     }
                 }
             }
+            deferredResults.awaitAll()
         }
-        val results = deferredResults.mapValues { (_, list) -> list.await() }
 
         execution.join()
 
-        val failedVerifications = results
-            .mapValues { (_, verifiedFiles) ->
-                verifiedFiles.filter { it.result != VerifyResult.OK }
-            }
-            .filterValues { it.isNotEmpty() }
+        val failedVerifications = results.filter { it.result != VerifyResult.OK }
 
         echo("")
         if (failedVerifications.isEmpty()) {
@@ -122,16 +124,25 @@ class VerifyConsistencyCommand : CliktCommand(
             echo(green("⚠️ Some files (${failedVerifications.size}) failed verification!"))
             printResults(results)
 
-            for ((asset, verifiedFiles) in failedVerifications) {
-                for (verifiedFile in verifiedFiles) {
-                    echo("${verifiedFile.file.type} of ${asset.id} failed due to ${verifiedFile.result}: ${verifiedFile.file.path}")
-                }
+            for (verifiedFile in failedVerifications) {
+                echo(
+                    listOf(
+                        verifiedFile.file.type,
+                        "of",
+                        verifiedFile.file.entity::class.simpleName,
+                        verifiedFile.file.entity.id,
+                        "failed due to",
+                        verifiedFile.result,
+                        ":",
+                        verifiedFile.file.path,
+                    ).joinToString(separator = " ")
+                )
             }
         }
     }
 
-    private fun printResults(results: Map<Asset, List<VerifiedFile>>) {
-        val flattened = results.values.flatten().groupingBy { it.result }.eachCount()
+    private fun printResults(results: List<VerifiedFile>) {
+        val flattened = results.groupingBy { it.result }.eachCount()
 
         fun MutableList<Widget>.resultLine(emoji: String, result: VerifyResult, suffix: String) {
             add(
@@ -160,11 +171,11 @@ class VerifyConsistencyCommand : CliktCommand(
         terminal.println(widget = list)
     }
 
-    private fun FilteredFile.verify(): VerifyResult {
+    private fun TrackedFile.verify(): VerifyResult {
         if (!path.exists()) {
             return VerifyResult.FILE_MISSING
         }
-        if (checksum != null) {
+        if (verifyChecksums && checksum != null) {
             val sha1 = path.sha1()
             if (!checksum.contentEquals(sha1)) {
                 return VerifyResult.CHECKSUM_MISMATCH
@@ -174,10 +185,8 @@ class VerifyConsistencyCommand : CliktCommand(
     }
 }
 
-private data class VerifyContext(val assets: Int)
-
 private data class VerifiedFile(
-    val file: FilteredFile,
+    val file: TrackedFile,
     val result: VerifyResult,
 )
 
