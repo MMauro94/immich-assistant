@@ -5,7 +5,7 @@ import com.github.ajalt.clikt.core.subcommands
 import dev.mmauro.immichassistant.verify.VerifyCommand
 import java.nio.charset.Charset
 
-class MainCommand: CliktCommand() {
+class MainCommand: CliktCommand(name = "immich-assistant") {
 
     init {
         subcommands(VerifyCommand())

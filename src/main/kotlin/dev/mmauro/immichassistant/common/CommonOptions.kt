@@ -6,5 +6,5 @@ import com.github.ajalt.clikt.parameters.options.option
 
 class CommonOptions: OptionGroup() {
 
-    val debug by option(help = "prints the stacktrace of errors").flag(default = false)
+    val debug by option(help = "Prints the stacktrace of errors").flag(default = false)
 }

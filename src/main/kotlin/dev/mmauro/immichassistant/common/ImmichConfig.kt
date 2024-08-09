@@ -13,8 +13,8 @@ class ImmichConfig : OptionGroup(
         Contains all relevant config options to connect to Immich.
         All options can be specified using either a CLI argument or an environment variable, identical to the one supplied to Immich.
         
-        See: https://immich.app/docs/install/environment-variables#database
-        See: https://immich.app/docs/install/environment-variables#docker-compose
+        - See: https://immich.app/docs/install/environment-variables#database
+        - See: https://immich.app/docs/install/environment-variables#docker-compose
     """.trimIndent(),
 ) {
 

@@ -9,7 +9,12 @@ import dev.mmauro.immichassistant.common.toAbsolute
 import dev.mmauro.immichassistant.db.model.Asset
 import dev.mmauro.immichassistant.db.model.DbEntity
 import dev.mmauro.immichassistant.db.model.Person
+import java.net.URLConnection
 import java.nio.file.Path
+import kotlin.io.path.ExperimentalPathApi
+import kotlin.io.path.div
+import kotlin.io.path.name
+import kotlin.io.path.walk
 
 class VerifyFilesFilters : OptionGroup(
     name = "Verify files filters",
@@ -79,6 +84,31 @@ class VerifyFilesFilters : OptionGroup(
             }
         }
         return allFiles.take(limitFiles ?: Int.MAX_VALUE).toList()
+    }
+
+    @OptIn(ExperimentalPathApi::class)
+    fun getFilteredFilesFromFileSystem(uploadLocation: Path): Sequence<Path> {
+        val files = sequence {
+            if (verifyOriginals) {
+                yieldAll((uploadLocation / "library").walk())
+            }
+            if (verifyThumbs) {
+                yieldAll((uploadLocation / "thumbs").walk())
+            }
+            if (verifyEncodedVideos) {
+                yieldAll((uploadLocation / "encoded-video").walk())
+            }
+        }
+        return files.filter {
+            val mimeType = URLConnection.guessContentTypeFromName(it.name) ?: ""
+            if (mimeType.startsWith("image")) {
+                verifyImages
+            } else if (mimeType.startsWith("video")) {
+                verifyVideos
+            } else {
+                true
+            }
+        }.take(limitFiles ?: Int.MAX_VALUE)
     }
 }
 
