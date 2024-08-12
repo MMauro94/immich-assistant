@@ -1,4 +1,4 @@
-package dev.mmauro.immichassistant.verify
+package dev.mmauro.immichassistant.commands.verify
 
 import com.github.ajalt.clikt.parameters.groups.OptionGroup
 import com.github.ajalt.clikt.parameters.options.flag

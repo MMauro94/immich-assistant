@@ -1,28 +1,30 @@
-package dev.mmauro.immichassistant.verify.consistency
+package dev.mmauro.immichassistant.commands.verify.consistency
 
-import com.github.ajalt.clikt.core.*
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.mordant.animation.coroutines.animateInCoroutine
 import com.github.ajalt.mordant.animation.progress.MultiProgressBarAnimation
-import com.github.ajalt.mordant.animation.progress.addTask
-import com.github.ajalt.mordant.animation.progress.advance
 import com.github.ajalt.mordant.rendering.TextColors.green
 import com.github.ajalt.mordant.rendering.Widget
 import com.github.ajalt.mordant.widgets.Text
 import com.github.ajalt.mordant.widgets.UnorderedList
-import com.github.ajalt.mordant.widgets.progress.*
-import dev.mmauro.immichassistant.common.*
+import dev.mmauro.immichassistant.commands.verify.TrackedFile
+import dev.mmauro.immichassistant.commands.verify.VerifyFilesFilters
+import dev.mmauro.immichassistant.common.CommonCommand
+import dev.mmauro.immichassistant.common.CommonOptions
+import dev.mmauro.immichassistant.common.ImmichConfig
+import dev.mmauro.immichassistant.common.sha1
+import dev.mmauro.immichassistant.common.task.addDeferredTask
+import dev.mmauro.immichassistant.common.task.addFilesProgressTask
 import dev.mmauro.immichassistant.db.connectDb
 import dev.mmauro.immichassistant.db.model.Asset
 import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
-import dev.mmauro.immichassistant.verify.TrackedFile
-import dev.mmauro.immichassistant.verify.VerifyFilesFilters
-import kotlinx.coroutines.*
-import java.util.concurrent.Executors
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlin.io.path.exists
 
 class VerifyConsistencyCommand : CliktCommand(
@@ -66,11 +68,10 @@ class VerifyConsistencyCommand : CliktCommand(
             started()
             db.selectAll(Person)
         }
+
         val assets = assetsTask.await()
         val people = peopleTask.await()
 
-        // Get a map where the asset is the key and each value is the list of files to validate
-        // Assets that don't pass the filter are discarded
         val filesToValidate = verifyFilesFilters.getFilteredTrackedFiles(
             assets = assets,
             people = people,
@@ -84,32 +85,8 @@ class VerifyConsistencyCommand : CliktCommand(
             return@runBlocking
         }
 
-        val verifyTaskLayout = progressBarLayout(alignColumns = false) {
-            percentage()
-            progressBar(width = 20, finishedStyle = green)
-            completed(" files")
-            speed(suffix = " files/s")
-        }
-        val verifyTask = progress.addTask(
-            definition = verifyTaskLayout,
-            completed = 0L,
-            total = filesToValidate.size.toLong(),
-        )
-
-        // advance() can only be called sequentially, so we'll do it on a fixed thread pool of size 1
-        val results = Executors.newSingleThreadExecutor().asCoroutineDispatcher().use { advanceDispatcher ->
-            val deferredResults = withContext(Dispatchers.IO) {
-                filesToValidate.map {
-                    async {
-                        VerifiedFile(it, it.verify()).also {
-                            withContext(advanceDispatcher) {
-                                verifyTask.advance()
-                            }
-                        }
-                    }
-                }
-            }
-            deferredResults.awaitAll()
+        val results = progress.addFilesProgressTask(filesToValidate, { it.path }).process {
+            VerifiedFile(it, it.verify())
         }
 
         execution.join()

@@ -2,8 +2,7 @@ package dev.mmauro.immichassistant
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
-import dev.mmauro.immichassistant.verify.VerifyCommand
-import java.nio.charset.Charset
+import dev.mmauro.immichassistant.commands.verify.VerifyCommand
 
 class MainCommand: CliktCommand(name = "immich-assistant") {
 

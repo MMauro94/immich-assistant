@@ -1,15 +1,17 @@
-package dev.mmauro.immichassistant.common
+package dev.mmauro.immichassistant.common.task
 
 import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.mordant.animation.coroutines.CoroutineProgressAnimator
 import com.github.ajalt.mordant.animation.progress.ProgressTask
-import com.github.ajalt.mordant.animation.progress.advance
 import com.github.ajalt.mordant.rendering.TextAlign
-import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.rendering.TextColors.red
 import com.github.ajalt.mordant.widgets.Spinner
 import com.github.ajalt.mordant.widgets.Text
-import com.github.ajalt.mordant.widgets.progress.*
+import com.github.ajalt.mordant.widgets.progress.ProgressBarDefinition
+import com.github.ajalt.mordant.widgets.progress.frameCount
+import com.github.ajalt.mordant.widgets.progress.progressBarContextLayout
+import com.github.ajalt.mordant.widgets.progress.text
+import dev.mmauro.immichassistant.common.CommonCommand
 import kotlinx.coroutines.*
 
 interface TaskRunnerScope {
@@ -27,12 +29,12 @@ data class TaskContext(
     val message: String? = null,
 )
 
-context(CommonCommand)
-suspend fun <T> CoroutineProgressAnimator.addDeferredTask(
+context(CommonCommand, CoroutineScope)
+fun <T> CoroutineProgressAnimator.addDeferredTask(
     name: String,
     stopOnException: Boolean = true,
     taskRunner: suspend TaskRunnerScope.() -> T,
-): Deferred<T> = coroutineScope {
+): Deferred<T> {
     class TaskRunnerScopeImpl(override val task: ProgressTask<TaskContext>) : TaskRunnerScope {
         override fun started() {
             task.update {
@@ -49,7 +51,7 @@ suspend fun <T> CoroutineProgressAnimator.addDeferredTask(
 
     val task = addTask(definition = taskLayout(name), context = TaskContext(), total = 1, completed = 0)
     val taskScope = TaskRunnerScopeImpl(task)
-    async {
+    return async {
         withContext(Dispatchers.IO) {
             val result = runCatching { taskRunner(taskScope) }
             task.update {

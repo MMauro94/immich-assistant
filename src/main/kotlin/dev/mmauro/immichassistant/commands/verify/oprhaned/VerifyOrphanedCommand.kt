@@ -1,21 +1,24 @@
-package dev.mmauro.immichassistant.verify.oprhaned
+package dev.mmauro.immichassistant.commands.verify.oprhaned
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
-import com.github.ajalt.clikt.parameters.options.option
-import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.mordant.animation.coroutines.animateInCoroutine
 import com.github.ajalt.mordant.animation.progress.MultiProgressBarAnimation
 import com.github.ajalt.mordant.rendering.TextColors.green
-import dev.mmauro.immichassistant.common.*
+import dev.mmauro.immichassistant.commands.verify.VerifyFilesFilters
+import dev.mmauro.immichassistant.common.CommonCommand
+import dev.mmauro.immichassistant.common.CommonOptions
+import dev.mmauro.immichassistant.common.ImmichConfig
+import dev.mmauro.immichassistant.common.task.addDeferredTask
+import dev.mmauro.immichassistant.common.task.listFiles
+import dev.mmauro.immichassistant.common.toAbsolute
 import dev.mmauro.immichassistant.db.connectDb
 import dev.mmauro.immichassistant.db.model.Asset
 import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
-import dev.mmauro.immichassistant.verify.VerifyFilesFilters
-import kotlinx.coroutines.*
-import java.nio.file.Path
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class VerifyOrphanedCommands : CliktCommand(
     name = "orphaned",
@@ -54,7 +57,7 @@ class VerifyOrphanedCommands : CliktCommand(
         }
         val filesTask = progress.addDeferredTask("Listing files (may take a while)") {
             started()
-            listFiles()
+            listFiles(verifyFilesFilters.getFilteredFilesFromFileSystem(immichConfig.uploadLocation))
         }
 
         val orphanedFiles = progress.addDeferredTask("Detecting orphaned files") {
@@ -77,7 +80,7 @@ class VerifyOrphanedCommands : CliktCommand(
                 .map { it.toAbsolute(immichConfig.uploadLocation) }
                 .toSet()
 
-            files.filter { it !in allPaths }
+            files.filter { it.path !in allPaths }
         }.await()
 
         execution.join()
@@ -89,19 +92,8 @@ class VerifyOrphanedCommands : CliktCommand(
             echo(green("⚠️ Found ${orphanedFiles.size} orphaned files!"))
 
             for (file in orphanedFiles) {
-                echo("$file not found in any asset!")
+                echo("${file.path} not found in any asset!")
             }
         }
-    }
-
-    private fun TaskRunnerScope.listFiles(): List<Path> {
-        var count = 0
-        return verifyFilesFilters
-            .getFilteredFilesFromFileSystem(immichConfig.uploadLocation)
-            .onEach {
-                count++
-                update("($count files discovered)")
-            }
-            .toList()
     }
 }
