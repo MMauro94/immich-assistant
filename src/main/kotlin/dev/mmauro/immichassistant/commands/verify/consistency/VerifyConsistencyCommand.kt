@@ -17,9 +17,9 @@ import dev.mmauro.immichassistant.common.CommonCommand
 import dev.mmauro.immichassistant.common.CommonOptions
 import dev.mmauro.immichassistant.common.ImmichConfig
 import dev.mmauro.immichassistant.common.sha1
-import dev.mmauro.immichassistant.common.task.addDeferredTask
 import dev.mmauro.immichassistant.common.task.addFilesProgressTask
-import dev.mmauro.immichassistant.db.connectDb
+import dev.mmauro.immichassistant.db.connectDbTask
+import dev.mmauro.immichassistant.db.addUseDbTask
 import dev.mmauro.immichassistant.db.model.Asset
 import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
@@ -54,18 +54,11 @@ class VerifyConsistencyCommand : CliktCommand(
         val progress = multiProgressBarAnimation.animateInCoroutine()
         val execution = launch { progress.execute() }
 
-        val dbTask = progress.addDeferredTask("Connecting to DB") {
-            started()
-            immichConfig.connectDb()
-        }
-        val assetsTask = progress.addDeferredTask("Listing assets") {
-            val db = dbTask.await()
-            started()
+        val dbTask = progress.connectDbTask(immichConfig)
+        val assetsTask = progress.addUseDbTask(dbTask, "Listing assets") { db ->
             db.selectAll(Asset)
         }
-        val peopleTask = progress.addDeferredTask("Listing people") {
-            val db = dbTask.await()
-            started()
+        val peopleTask = progress.addUseDbTask(dbTask, "Listing people") { db ->
             db.selectAll(Person)
         }
 

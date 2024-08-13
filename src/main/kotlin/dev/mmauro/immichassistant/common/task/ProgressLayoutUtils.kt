@@ -1,9 +1,12 @@
 package dev.mmauro.immichassistant.common.task
 
+import com.github.ajalt.mordant.rendering.TextColors.green
 import com.github.ajalt.mordant.table.ColumnWidth
 import com.github.ajalt.mordant.widgets.Text
 import com.github.ajalt.mordant.widgets.progress.ProgressLayoutScope
 import com.github.ajalt.mordant.widgets.progress.ProgressState
+import com.github.ajalt.mordant.widgets.progress.percentage
+import com.github.ajalt.mordant.widgets.progress.progressBar
 import dev.mmauro.immichassistant.common.byteSizeToString
 
 fun <T> ProgressLayoutScope<T>.itemsCount(
@@ -23,4 +26,9 @@ fun <T> ProgressLayoutScope<T>.bytes(totalBytes: Long, bytes: ProgressState<T>.(
         val current = bytes().byteSizeToString()
         Text("$current/$total")
     }
+}
+
+fun ProgressLayoutScope<*>.customProgresBar() {
+    percentage()
+    progressBar(width = 20, finishedStyle = green)
 }

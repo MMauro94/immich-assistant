@@ -1,6 +1,10 @@
 package dev.mmauro.immichassistant.db.model
 
 import dev.mmauro.immichassistant.db.EntityType
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toKotlinInstant
+import kotlinx.datetime.toLocalDateTime
 import kotliquery.Row
 import java.nio.file.Path
 import kotlin.io.path.Path
@@ -17,7 +21,11 @@ class Asset(
     val isVisible: Boolean,
     val livePhotoVideoId: String?,
     val sidecarPath: Path?,
+    localDateTime: Instant,
 ) : DbEntity {
+
+    val localDateTime = localDateTime.toLocalDateTime(TimeZone.UTC)
+
     enum class Type {
         IMAGE, VIDEO
     }
@@ -40,6 +48,7 @@ class Asset(
             isVisible = row.boolean("isVisible"),
             livePhotoVideoId = row.stringOrNull("livePhotoVideoId"),
             sidecarPath = row.stringOrNull("sidecarPath")?.let { Path(it) },
+            localDateTime = row.instant("localDateTime").toKotlinInstant(),
         )
     }
 }

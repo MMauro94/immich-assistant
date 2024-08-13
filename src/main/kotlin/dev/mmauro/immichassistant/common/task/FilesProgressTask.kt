@@ -3,7 +3,6 @@ package dev.mmauro.immichassistant.common.task
 import com.github.ajalt.mordant.animation.progress.ProgressBarAnimation
 import com.github.ajalt.mordant.animation.progress.ProgressTask
 import com.github.ajalt.mordant.rendering.TextColors.green
-import com.github.ajalt.mordant.table.verticalLayout
 import com.github.ajalt.mordant.widgets.progress.*
 import dev.mmauro.immichassistant.common.PathWithSize
 import dev.mmauro.immichassistant.common.totalSize
@@ -11,15 +10,6 @@ import kotlinx.coroutines.*
 import java.nio.file.Path
 import java.util.concurrent.Executors
 import kotlin.io.path.fileSize
-
-val FILES_PROGRESS_LAYOUT = progressBarLayout(alignColumns = false) {
-    verticalLayout {
-        percentage()
-        progressBar(width = 20, finishedStyle = green)
-        completed(" files")
-        speed(suffix = " files/s")
-    }
-}
 
 class FilesProgressTask<T>(
     private val task: ProgressTask<Int>,
@@ -80,8 +70,7 @@ fun ProgressBarAnimation.addFilesProgressTask(files: List<PathWithSize>) = addFi
 )
 
 private fun filesProgressLayout(count: Long, totalBytes: Long?) = progressBarContextLayout<Int>(alignColumns = false) {
-    percentage()
-    progressBar(width = 20, finishedStyle = green)
+    customProgresBar()
     if (totalBytes != null) {
         bytes(totalBytes = totalBytes) { completed }
     }
