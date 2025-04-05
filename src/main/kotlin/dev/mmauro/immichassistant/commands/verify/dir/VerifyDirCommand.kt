@@ -1,6 +1,7 @@
 package dev.mmauro.immichassistant.commands.verify.dir
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
@@ -24,9 +25,9 @@ import java.nio.file.Path
 import kotlin.io.path.ExperimentalPathApi
 import kotlin.io.path.walk
 
-class VerifyDirCommand : CliktCommand(
-    name = "dir",
-    help = """
+class VerifyDirCommand : CliktCommand(name = "dir"), CommonCommand {
+
+    override fun help(context: Context) = """
         This command compares a given directory to what is stored in Immich's database, and reports on missing files.
         The comparison is made using SHA-1 checksums.
         
@@ -34,7 +35,6 @@ class VerifyDirCommand : CliktCommand(
         
         Note: this command computes the SHA-1 checksum
     """.trimIndent()
-), CommonCommand {
 
     override val commonOptions by CommonOptions()
     private val immichConfig by ImmichConfig()

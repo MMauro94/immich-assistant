@@ -4,7 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import dev.mmauro.immichassistant.commands.verify.dir.VerifyDirCommand
 import dev.mmauro.immichassistant.commands.verify.consistency.VerifyConsistencyCommand
-import dev.mmauro.immichassistant.commands.verify.oprhaned.VerifyOrphanedCommands
+import dev.mmauro.immichassistant.commands.verify.oprhaned.VerifyOrphanedCommand
 
 class VerifyCommand : CliktCommand(
     name = "verify"
@@ -13,7 +13,7 @@ class VerifyCommand : CliktCommand(
     init {
         subcommands(VerifyDirCommand())
         subcommands(VerifyConsistencyCommand())
-        subcommands(VerifyOrphanedCommands())
+        subcommands(VerifyOrphanedCommand())
     }
 
     override fun run() = Unit

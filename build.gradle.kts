@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.0.10"
+    kotlin("plugin.serialization") version "2.0.10"
 }
 
 group = "dev.mmauro"
@@ -10,14 +11,22 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.ajalt.clikt:clikt:4.4.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
-    implementation("com.github.ajalt.mordant:mordant:2.7.2")
-    implementation("com.github.ajalt.mordant:mordant-coroutines:2.7.2")
-    implementation("org.postgresql:postgresql:42.7.3")
-    implementation("com.github.seratch:kotliquery:1.9.0")
+    // CLI
+    implementation("com.github.ajalt.clikt:clikt:5.0.3")
+    implementation("com.github.ajalt.mordant:mordant:3.0.2")
+    implementation("com.github.ajalt.mordant:mordant-coroutines:3.0.2")
+
+    // Utils
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.2")
+
+    // Logging
     implementation("org.slf4j:slf4j-nop:1.7.36")
 
+    // Database
+    implementation("com.github.seratch:kotliquery:1.9.1")
+    implementation("org.postgresql:postgresql:42.7.5")
+
+    // Kotest
     val kotestVersion = "5.9.1"
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("io.kotest:kotest-runner-junit5:$kotestVersion")

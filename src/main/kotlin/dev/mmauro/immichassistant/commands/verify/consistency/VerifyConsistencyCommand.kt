@@ -1,6 +1,7 @@
 package dev.mmauro.immichassistant.commands.verify.consistency
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.clikt.parameters.options.flag
@@ -27,9 +28,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.io.path.exists
 
-class VerifyConsistencyCommand : CliktCommand(
-    name = "consistency",
-    help = """
+class VerifyConsistencyCommand : CliktCommand(name = "consistency"), CommonCommand {
+
+    override fun help(context: Context) = """
         Helps verify consistency between of what is stored in Immich's database compared to the filesystem.
         
         This command is helpful as the file system might get out of sync, either due to manual action, a software bug or
@@ -40,7 +41,6 @@ class VerifyConsistencyCommand : CliktCommand(
         This command does not verify that each file in the file system is reflected in Immich's DB.
         For that, use the `verify orphaned` command.
     """.trimIndent()
-), CommonCommand {
 
     override val commonOptions by CommonOptions()
     private val immichConfig by ImmichConfig()

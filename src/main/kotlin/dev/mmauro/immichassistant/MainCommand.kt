@@ -1,6 +1,7 @@
 package dev.mmauro.immichassistant
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import dev.mmauro.immichassistant.commands.verify.VerifyCommand
 

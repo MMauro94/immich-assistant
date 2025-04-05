@@ -1,6 +1,7 @@
 package dev.mmauro.immichassistant.commands.verify.oprhaned
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.terminal
 import com.github.ajalt.clikt.parameters.groups.provideDelegate
 import com.github.ajalt.mordant.animation.coroutines.animateInCoroutine
@@ -20,9 +21,9 @@ import dev.mmauro.immichassistant.db.selectAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
-class VerifyOrphanedCommands : CliktCommand(
-    name = "orphaned",
-    help = """
+class VerifyOrphanedCommand : CliktCommand(name = "orphaned"), CommonCommand {
+
+    override fun help(context: Context) = """
         This command checks that each file in the file system is reflected somewhere in Immich's database.
                 
         This command does not verify the checksum or completeness of matching files.
@@ -30,7 +31,6 @@ class VerifyOrphanedCommands : CliktCommand(
         
         For that, use the `verify consistency` command.
     """.trimIndent()
-), CommonCommand {
 
     override val commonOptions by CommonOptions()
     private val immichConfig by ImmichConfig()
