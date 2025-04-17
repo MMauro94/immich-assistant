@@ -48,6 +48,11 @@ tasks.register<Jar>("uberJar") {
     group = "build"
     archiveClassifier.set("uber")
 
+    val jarName = project.property("jarName")
+    if (jarName is String) {
+        archiveFileName.set("$jarName.jar")
+    }
+
     from(sourceSets.main.get().output)
 
     dependsOn(configurations.runtimeClasspath)
