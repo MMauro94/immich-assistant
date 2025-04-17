@@ -45,6 +45,7 @@ kotlin {
 }
 
 tasks.register<Jar>("uberJar") {
+    group = "build"
     archiveClassifier.set("uber")
 
     from(sourceSets.main.get().output)
