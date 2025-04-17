@@ -16,6 +16,7 @@ import dev.mmauro.immichassistant.common.task.listFiles
 import dev.mmauro.immichassistant.common.toAbsolute
 import dev.mmauro.immichassistant.db.connectDb
 import dev.mmauro.immichassistant.db.model.Asset
+import dev.mmauro.immichassistant.db.model.AssetFile
 import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
 import kotlinx.coroutines.launch
@@ -50,6 +51,11 @@ class VerifyOrphanedCommand : CliktCommand(name = "orphaned"), CommonCommand {
             started()
             db.selectAll(Asset)
         }
+        val assetFilesTask = progress.addDeferredTask("Listing asset files") {
+            val db = dbTask.await()
+            started()
+            db.selectAll(AssetFile)
+        }
         val peopleTask = progress.addDeferredTask("Listing people") {
             val db = dbTask.await()
             started()
@@ -62,19 +68,19 @@ class VerifyOrphanedCommand : CliktCommand(name = "orphaned"), CommonCommand {
 
         val orphanedFiles = progress.addDeferredTask("Detecting orphaned files") {
             val assets = assetsTask.await()
+            val assetFiles = assetFilesTask.await().groupBy { it.assetId }
             val people = peopleTask.await()
             val files = filesTask.await()
             started()
 
             val allPaths = assets
-                .flatMap {
-                    listOfNotNull(
-                        it.originalPath,
-                        it.encodedVideoPath,
-                        it.thumbnailPath,
-                        it.sidecarPath,
-                        it.previewPath
-                    )
+                .flatMap { asset ->
+                    buildList {
+                        add(asset.originalPath)
+                        add(asset.encodedVideoPath)
+                        add(asset.sidecarPath)
+                        addAll(assetFiles[asset.ownerId]?.map { it.path }.orEmpty())
+                    }.filterNotNull()
                 }
                 .plus(people.mapNotNull { it.thumbnailPath })
                 .map { it.toAbsolute(immichConfig.uploadLocation) }

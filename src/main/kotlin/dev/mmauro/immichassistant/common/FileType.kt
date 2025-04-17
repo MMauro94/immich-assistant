@@ -1,5 +1,5 @@
 package dev.mmauro.immichassistant.common
 
 enum class FileType {
-    ORIGINAL, THUMBNAIL, ENCODED_VIDEO, PROFILE
+    ORIGINAL, PREVIEW, THUMBNAIL, ENCODED_VIDEO, PROFILE
 }

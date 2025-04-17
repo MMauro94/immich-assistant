@@ -7,6 +7,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import dev.mmauro.immichassistant.common.FileType
 import dev.mmauro.immichassistant.common.toAbsolute
 import dev.mmauro.immichassistant.db.model.Asset
+import dev.mmauro.immichassistant.db.model.AssetFile
 import dev.mmauro.immichassistant.db.model.DbEntity
 import dev.mmauro.immichassistant.db.model.Person
 import java.net.URLConnection
@@ -26,6 +27,9 @@ class VerifyFilesFilters : OptionGroup(
 
     private val verifyThumbs by option(help = "Verifies the thumbnails")
         .flag("--skip-thumbnails", default = true)
+
+    private val verifyPreviews by option(help = "Verifies the previews")
+        .flag("--skip-previews", default = true)
 
     private val verifyEncodedVideos by option(help = "Verifies the encoded videos")
         .flag("--skip-encoded-videos", default = true)
@@ -49,6 +53,7 @@ class VerifyFilesFilters : OptionGroup(
 
     fun getFilteredTrackedFiles(
         assets: Iterable<Asset>,
+        assetFiles: Iterable<AssetFile>,
         people: Iterable<Person>,
         uploadLocation: Path,
     ): List<TrackedFile> {
@@ -59,15 +64,26 @@ class VerifyFilesFilters : OptionGroup(
             checksum = checksum
         )
 
+        val assetFilesMap = assetFiles.groupBy { it.assetId }
         val allFiles = sequence {
             yieldAll(
                 assets.asSequence().filter { it.shouldInclude() }.flatMap {
                     buildList {
+                        val files = assetFilesMap[it.id].orEmpty().groupBy { it.type }
                         if (verifyOriginals) {
                             add(it.originalPath.toTrackedFile(it, FileType.ORIGINAL, it.checksum))
                         }
-                        if (verifyThumbs && it.thumbnailPath != null) {
-                            add(it.thumbnailPath.toTrackedFile(it, FileType.THUMBNAIL, checksum = null))
+                        val thumbnails = files[AssetFile.Type.THUMBNAIL].orEmpty()
+                        if (verifyThumbs) {
+                            thumbnails.forEach {
+                                add(it.path.toTrackedFile(it, FileType.THUMBNAIL, checksum = null))
+                            }
+                        }
+                        val previews = files[AssetFile.Type.PREVIEW].orEmpty()
+                        if (verifyPreviews) {
+                            previews.forEach {
+                                add(it.path.toTrackedFile(it, FileType.PREVIEW, checksum = null))
+                            }
                         }
                         if (verifyEncodedVideos && it.encodedVideoPath != null) {
                             add(it.encodedVideoPath.toTrackedFile(it, FileType.ENCODED_VIDEO, checksum = null))
@@ -75,7 +91,7 @@ class VerifyFilesFilters : OptionGroup(
                     }
                 }
             )
-            if(verifyPeople) {
+            if (verifyPeople) {
                 yieldAll(
                     people
                         .asSequence()

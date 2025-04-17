@@ -22,6 +22,7 @@ import dev.mmauro.immichassistant.common.task.addDeferredTask
 import dev.mmauro.immichassistant.common.task.addFilesProgressTask
 import dev.mmauro.immichassistant.db.connectDb
 import dev.mmauro.immichassistant.db.model.Asset
+import dev.mmauro.immichassistant.db.model.AssetFile
 import dev.mmauro.immichassistant.db.model.Person
 import dev.mmauro.immichassistant.db.selectAll
 import kotlinx.coroutines.launch
@@ -63,6 +64,11 @@ class VerifyConsistencyCommand : CliktCommand(name = "consistency"), CommonComma
             started()
             db.selectAll(Asset)
         }
+        val assetFilesTask = progress.addDeferredTask("Listing assets files") {
+            val db = dbTask.await()
+            started()
+            db.selectAll(AssetFile)
+        }
         val peopleTask = progress.addDeferredTask("Listing people") {
             val db = dbTask.await()
             started()
@@ -70,10 +76,12 @@ class VerifyConsistencyCommand : CliktCommand(name = "consistency"), CommonComma
         }
 
         val assets = assetsTask.await()
+        val assetFiles = assetFilesTask.await()
         val people = peopleTask.await()
 
         val filesToValidate = verifyFilesFilters.getFilteredTrackedFiles(
             assets = assets,
+            assetFiles = assetFiles,
             people = people,
             uploadLocation = immichConfig.uploadLocation,
         )
